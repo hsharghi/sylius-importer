@@ -34,8 +34,6 @@ final class Product: MySQLModel {
     }
 }
 
-extension Product: Migration { }
-
 extension Product: Content { }
 
 extension Product: Parameter { }
