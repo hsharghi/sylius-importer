@@ -48,17 +48,17 @@ class CategoryImporter: CoreImporter {
         }
         
         var dic: [String: Any] = [
-            "code" : categoryCode(categoryNode: categoryNode),
+            "code" : categoryNode.toCode(),
             "translations" : [
                 "fa_IR" : [
                     "name": categoryNode.value.title,
-                    "slug": categorySlug(categoryNode: categoryNode)
+                    "slug": categoryNode.toSlug(),
                 ]
             ]
         ]
         
         if let parent = categoryNode.parent {
-            dic["parent"] = categoryCode(categoryNode: parent)
+            dic["parent"] = parent.toCode()
         }
         
         let jsonData = try! JSONSerialization.data(withJSONObject: dic, options: .prettyPrinted)
@@ -72,42 +72,12 @@ class CategoryImporter: CoreImporter {
                 body: body)
 
         
-        let client = try! HTTPClient.connect(hostname: "http://acme.test", on: container).wait()
+        let client = try! HTTPClient.connect(hostname: "http://deeptee.test", on: container).wait()
         let response = try! client.send(httpReq).wait()
         print(response)
         
     }
 
-    
-    private func categoryCode(categoryNode: TreeNode<AstinCategory>) -> String {
-        
-        var codes = [String]()
-        
-        var c: TreeNode<AstinCategory>? = categoryNode
-        
-        while c != nil {
-            codes.append(c!.value.title.slugify())
-            c = c!.parent
-        }
-        
-        let code = codes.reversed().joined(separator: "-")
-        return code
-    }
-    
-    private func categorySlug(categoryNode: TreeNode<AstinCategory>) -> String {
-        
-        var codes = [String]()
-        
-        var c: TreeNode<AstinCategory>? = categoryNode
-        
-        while c != nil {
-            codes.append(c!.value.title)
-            c = c!.parent
-        }
-        
-        let code = codes.reversed().joined(separator: "/")
-        return code
-    }
 
     func readAstinCategories() {
         _ = container.withPooledConnection(to: .sqlite) { conn -> Future<[AstinCategory]> in
