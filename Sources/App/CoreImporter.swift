@@ -6,6 +6,7 @@
 //
 
 import Vapor
+import Fluent
 
 class CoreImporter {
     
@@ -80,6 +81,7 @@ class CoreImporter {
         
     }
     
+    
 //
 //    func login(username: String, password: String, completion: @escaping (_ error: ServerError?, _ token: String?, _ refreshToken: String?) -> Void ) {
 //
@@ -145,8 +147,73 @@ struct ServerError: Codable {
 }
 
 
+// data layer methods
 extension CoreImporter {
     
+    func getBrandsAsCategory() -> Future<[TreeNode<AstinCategory>]> {
+        return  container.withPooledConnection(to: .sqlite) { (conn) -> Future<[TreeNode<AstinCategory>]> in
+            return AstinBrand.query(on: conn).all().map { (brands) -> [TreeNode<AstinCategory>] in
+                return brands.map ({ TreeNode(value: AstinCategory(id: $0.id!, parentId: nil, title: $0.name, status: true)) })
+            }
+        }
+    }
+
+    
+    func categoriesAsTree(categories: [AstinCategory], rootId: Int = 1) -> TreeNode<AstinCategory> {
+        let tree = TreeNode(value: AstinCategory(id: rootId, title: "اصلی"))
+        for category in categories.filter({$0.parentId == nil}) {
+            let parentNode = TreeNode(value: category)
+            for child in categories.filter({$0.parentId == category.id}) {
+                let parentNode2 = TreeNode(value: child)
+                for child2 in categories.filter({$0.parentId == child.id}) {
+                    parentNode2.addChild(TreeNode(value: child2))
+                }
+                parentNode.addChild(parentNode2)
+            }
+            tree.addChild(parentNode)
+        }
+        return tree
+    }
+
+
+    
+    func categoriesAsTree() -> Future<TreeNode<AstinCategory>> {
+        return container.withPooledConnection(to: .sqlite) { (conn) -> Future<TreeNode<AstinCategory>> in
+            return AstinCategory.query(on: conn)
+                .filter(\.status == true)
+                .all()
+                .map { (categories) -> TreeNode<AstinCategory> in
+                    let tree = TreeNode(value: AstinCategory(id: 0, title: "اصلی"))
+                    for category in categories.filter({$0.parentId == nil}) {
+                        let parentNode = TreeNode(value: category)
+                        for child in categories.filter({$0.parentId == category.id}) {
+                            let parentNode2 = TreeNode(value: child)
+                            for child2 in categories.filter({$0.parentId == child.id}) {
+                                parentNode2.addChild(TreeNode(value: child2))
+                            }
+                            parentNode.addChild(parentNode2)
+                        }
+                        tree.addChild(parentNode)
+                    }
+                    return tree
+            }
+        }
+    }
+
+    
+    func getBrandsAsTreeNode() -> Future<[TreeNode<AstinCategory>]> {
+        
+        return container.withPooledConnection(to: .sqlite) { (conn) -> Future<[TreeNode<AstinCategory>]> in
+            return AstinProduct.query(on: conn).all().map { (brands) -> [TreeNode<AstinCategory>] in
+                let categories = brands.map { AstinCategory(id: $0.id!, parentId: nil, title: $0.title, status: true) }
+                return categories.map({ TreeNode(value: $0)})
+            }
+        }
+        
+        
+    }
+
+
     
 }
 
