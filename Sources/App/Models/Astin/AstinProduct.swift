@@ -38,6 +38,25 @@ extension AstinProduct: Content { }
 
 extension AstinProduct: Parameter { }
 
+extension AstinProduct {
+    
+    var specs: Children<AstinProduct, AstinProductSpec> {
+        return children(\.productId)
+    }
+    
+    var options: Children<AstinProduct, AstinProductOption> {
+        return children(\.productId)
+    }
+    
+    var images: Children<AstinProduct, AstinProductImage> {
+        return children(\.productId)
+    }
+    
+    var categories: Siblings<AstinProduct, AstinCategory, AstinCategoryProductPivot> {
+            return siblings()
+    }
+
+}
 
 class ExtendedProduct {
     
@@ -49,10 +68,10 @@ class ExtendedProduct {
     var price: Int
     var discountedPrice: Int?
     var description: String?
-    var category: Category
+    var categories: [AstinCategory]
     var defaultImageName: String?
-    var images: [String]?
-    var specs: [String: String]?
+    var images: [AstinProductImage]?
+    var specs: [AstinProductSpec]?
     var options: [AstinProductOption]?
     
     internal init(id: Int,
@@ -62,10 +81,10 @@ class ExtendedProduct {
                   price: Int,
                   discountedPrice: Int? = nil,
                   description: String? = nil,
-                  category: Category,
+                  categories: [AstinCategory],
                   defaultImageName: String? = nil,
-                  images: [String]? = nil,
-                  specs: [String : String]? = nil,
+                  images: [AstinProductImage]? = nil,
+                  specs: [AstinProductSpec]? = nil,
                   options: [AstinProductOption]? = nil) {
         
         self.id = id
@@ -75,7 +94,7 @@ class ExtendedProduct {
         self.price = price
         self.discountedPrice = discountedPrice
         self.description = description
-        self.category = category
+        self.categories = categories
         self.defaultImageName = defaultImageName
         self.images = images
         self.specs = specs
