@@ -50,6 +50,10 @@ class BrandImporter: CoreImporter {
                 "fa_IR" : [
                     "name": categoryNode.value.title,
                     "slug": categoryNode.toSlug(),
+                ],
+                "en_US" : [
+                    "name": categoryNode.value.title,
+                    "slug": categoryNode.toSlug(),
                 ]
             ]
         ]
