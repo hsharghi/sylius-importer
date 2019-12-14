@@ -12,10 +12,14 @@ import FluentSQLite
 final class AstinProductSpec: SQLiteModel {
     static var entity: String = "product_specs"
 
+    static var sqlTableIdentifierString: String {
+        return self.entity
+    }
+
     var id: Int?
-    var productId: AstinProduct.ID
-    var name: String
-    var value: String
+    var productId: AstinProduct.ID?
+    var name: String?
+    var value: String?
 
     internal init(productId: AstinProduct.ID, name: String, value: String) {
         self.productId = productId
