@@ -17,8 +17,8 @@ class CoreImporter {
     
     private let baseUrl = "http://deeptee.test/"
     private let apiPrefixUrl = "api/v1/"
-    private let clientId = "26lptckuvxz44ogk4cowgg400wgwsg8w0o4gsocs0soskcowkg"
-    private let clientSecret = "2w02dhbhpz6scc8ocg0wsook8oks8wcw4ooso08g8swwgc8gc8"
+    private let clientId = "1eb2vnk4hv7ogc4c84gskscwcs04k4k0cog0sg80w40wokscsc"
+    private let clientSecret = "5g7czaqh16skc400cgg0c0cks8cogkooow80cgco8ccwgo4k88"
     
     
     init(container: Container) throws {
@@ -218,3 +218,32 @@ extension CoreImporter {
 }
 
 
+extension CoreImporter {
+    
+    
+    func fetchChildren<Parent, ParentID, Child: Model, Result>(
+        of parents: [Parent],
+        idKey: KeyPath<Parent, ParentID?>,
+        via reference: KeyPath<Child, ParentID>,
+        on conn: DatabaseConnectable,
+        combining: @escaping (Parent, [Child]) -> Result) -> Future<[Result]> where ParentID: Hashable & Encodable {
+        let parentIDs = parents.compactMap { $0[keyPath: idKey] }
+        let children = Child.query(on: conn)
+            .filter(reference ~~ parentIDs)
+            .all()
+        return children.map { children in
+            let lut = [ParentID: [Child]](grouping: children, by: { $0[keyPath: reference] })
+            return parents.map { parent in
+                let children: [Child]
+                if let id = parent[keyPath: idKey] {
+                    children = lut[id] ?? []
+                } else {
+                    children = []
+                }
+                return combining(parent, children)
+            }
+        }
+    }
+    
+    
+}
