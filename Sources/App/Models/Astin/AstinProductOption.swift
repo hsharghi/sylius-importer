@@ -22,13 +22,15 @@ final class AstinProductOption: SQLiteModel {
     var optionId: Int
     var optionLabel: String
     var optionValue: String
+    var optionPrice: Int
     
-    internal init(id: Int? = nil, productId: AstinProduct.ID, optionId: Int, optionLabel: String, optionValue: String) {
+    internal init(id: Int? = nil, productId: AstinProduct.ID, optionId: Int, optionLabel: String, optionValue: String, optionPrice: Int = 0 ) {
         self.id = id
         self.productId = productId
         self.optionId = optionId
         self.optionLabel = optionLabel
         self.optionValue = optionValue
+        self.optionPrice = optionPrice
     }
     
 }
