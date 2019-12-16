@@ -100,4 +100,8 @@ class ExtendedProduct {
         self.specs = specs
         self.options = options
     }
+    
+    var code: String {
+        return "\(self.title.slugify())-\(self.id)"
+    }
 }
