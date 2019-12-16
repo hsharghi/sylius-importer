@@ -17,8 +17,8 @@ class CoreImporter {
     
     private let baseUrl = "http://deeptee.test/"
     private let apiPrefixUrl = "api/v1/"
-    private let clientId = "1eb2vnk4hv7ogc4c84gskscwcs04k4k0cog0sg80w40wokscsc"
-    private let clientSecret = "5g7czaqh16skc400cgg0c0cks8cogkooow80cgco8ccwgo4k88"
+    private let clientId = "3z45us18igis0gg8ossk8cc8socwso0g0so8w0gc8o8g08g00w"
+    private let clientSecret = "4hitvu6b8kcg04woos8wkokckwskw4k88wccgsc08g4sk8cso8"
     
     
     init(container: Container) throws {
