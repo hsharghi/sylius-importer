@@ -91,18 +91,17 @@ class ProductImporter: CoreImporter {
             options.append(option.optionLabel.slugify())
         }
         
-        let slug = product.title.slugify() + "-" + String(product.id)
         var dic: [String: Any] = [
-            "code" : slug,
+            "code" : product.code,
             "channels" : ["default"],
             "translations" : [
                 "en_US" : [
                     "name": product.title,
-                    "slug": product.title,
+                    "slug": "\(product.id)-\(product.title)",
                 ],
                 "fa_IR" : [
                     "name": product.title,
-                    "slug": product.title,
+                    "slug": "\(product.id)-\(product.title)",
                 ]
             ],
         ]
@@ -139,8 +138,80 @@ class ProductImporter: CoreImporter {
         let response = try! client.send(httpReq).wait()
         print(response)
         
+        
+        addVariant(for: product)
+        
     }
     
+    
+    func addVariant(for product: ExtendedProduct) {
+        
+        guard product.options?.count ?? 0 > 1 else {
+            return
+        }
+        
+        guard let headers = headers else {
+            return
+        }
+
+        
+        for option in product.options! {
+            var dic: [String: Any] = [
+                "code": getOptionCode(option: option)+"-variant",
+                "translations": [
+                    "en_US" : [
+                        "name": option.optionLabel,
+                    ],
+                    "fa_IR" : [
+                        "name": option.optionLabel,
+                    ]
+                ],
+                "tracked": true,
+                "optionValues": [
+                    option.optionLabel.slugify(): getOptionCode(option: option)
+                ],
+                "channelPricings": [
+                    "default": [
+                        "price": option.optionPrice == 0 ? product.price : option.optionPrice
+                    ]
+                ]
+            ]
+            
+            if option.optionPrice > 0 {
+                dic["channelPricings"] = [
+                    "default": [
+                        "price": option.optionPrice
+                    ]
+                ]
+            }
+            
+            
+            
+            
+            let jsonData = try! JSONSerialization.data(withJSONObject: dic, options: .prettyPrinted)
+            
+            print(String(data: jsonData, encoding: .utf8 )!)
+            
+            let body = HTTPBody(data: jsonData)
+            
+            let url = apiUrl(url: "products/\(product.code)/variants/")
+            
+            let httpReq = HTTPRequest(
+                method: .POST,
+                url: URL(string: apiUrl(url: "products/\(product.code)/variants/"))!,
+                headers: headers,
+                body: body)
+            
+            
+            let client = try! HTTPClient.connect(hostname: "http://deeptee.test", on: container).wait()
+            let response = try! client.send(httpReq).wait()
+            print(response)
+            
+            
+        }
+        
+        
+    }
     
     func getAttributes() -> Future<[AstinProductSpec]> {
         return container.withPooledConnection(to: .sqlite) { (conn) -> Future<[AstinProductSpec]> in
