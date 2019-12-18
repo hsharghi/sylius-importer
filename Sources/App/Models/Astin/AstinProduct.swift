@@ -105,3 +105,11 @@ class ExtendedProduct {
         return "\(self.title.slugify())-\(self.id)"
     }
 }
+
+extension ExtendedProduct: Equatable {
+    static func == (lhs: ExtendedProduct, rhs: ExtendedProduct) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    
+}
