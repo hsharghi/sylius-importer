@@ -19,7 +19,8 @@ class CoreImporter {
     private let apiPrefixUrl = "api/v1/"
     private let clientId = "3z45us18igis0gg8ossk8cc8socwso0g0so8w0gc8o8g08g00w"
     private let clientSecret = "4hitvu6b8kcg04woos8wkokckwskw4k88wccgsc08g4sk8cso8"
-    
+    private let username = "hsharghi"
+    private let password = "hadi2400"
     
     init(container: Container) throws {
         self.container = container
@@ -45,7 +46,7 @@ class CoreImporter {
     }
 
     open func start() {
-        _ = try! login(username: "hsharghi", password: "hadi2400")?.wait()
+        _ = try! login(username: username, password: password)?.wait()
     }
 
     func apiUrl(url: String) -> String {
@@ -66,6 +67,16 @@ class CoreImporter {
             case .ok:
                 if let loginResponse = self.encode(from: data, to: LoginSuccess.self) {
                     self.token = loginResponse.access_token
+                    if #available(OSX 10.12, *) {
+                        _ = Timer(fire: Date().addingTimeInterval(TimeInterval(loginResponse.expires_in - 60)),
+                              interval: 0,
+                              repeats: false,
+                              block: { _ in
+                                _ = self.login(username: self.username, password: self.password)
+                        })
+                    } else {
+                        // Fallback on earlier versions
+                    }
                     return loginResponse.access_token
                 }
             case .badRequest:
