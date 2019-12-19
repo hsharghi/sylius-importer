@@ -15,14 +15,16 @@ class ProductImporter: CoreImporter {
     var astinCategories = [AstinCategory]()
     var categoryTree: TreeNode<AstinCategory>?
     var products = [ExtendedProduct]()
-    let productsInPass = 5
+    let productsInPass = 30
     var totalProducts = 0
     
     
     var productsAddedCount = 0 {
         didSet {
+            //            print("productsAddedCount = \(productsAddedCount)")
             if productsAddedCount == productsInPass {
                 addProducts()
+                //                deleteAllProducts()
             }
         }
     }
@@ -32,33 +34,114 @@ class ProductImporter: CoreImporter {
         super.start()
         
         categoryTree = try! categoriesAsTree().wait()
-
         
-//        /// Save product attributes
-//        let specs = try! getAttributes().wait()
-//        specs.forEach({ self.addAttributes(attribute: $0)})
-//
-//
-//        /// Save product options
-//        let allOptions = try! getAllOptions().wait()
-//        let groupOptions = try! getOptions().wait()
-//        groupOptions.forEach { (option) in
-//            let options = allOptions.filter({$0.optionLabel == option.optionLabel})
-//            if options.count > 1 {
-//                addOptionValues(option: option, values: Array(Set(options.compactMap({$0.optionValue}))))
-//            }
-//        }
         
-        /// Save products and assign attributes / options
+        //        /// Save product attributes
+        //        let specs = try! getAttributes().wait()
+        //        specs.forEach({ self.addAttributes(attribute: $0)})
+        //
+        //
+        //        /// Save product options
+        //        let allOptions = try! getAllOptions().wait()
+        //        let groupOptions = try! getOptions().wait()
+        //        groupOptions.forEach { (option) in
+        //            let options = allOptions.filter({$0.optionLabel == option.optionLabel})
+        //            if options.count > 1 {
+        //                addOptionValues(option: option, values: Array(Set(options.compactMap({$0.optionValue}))))
+        //            }
+        //        }
+        
+        //        /// Save products and assign attributes / options
         print("populating products list...")
-        let extendedProducts = try! getProductsAsExtendedProduct().wait()
+        let extendedProducts = try! getProductsAsExtendedProduct(limit: 4).wait()
         totalProducts = extendedProducts.count
         print("done.\n adding products to deeptee...")
         products = extendedProducts
-    
+        //        deleteAllProducts()
+        
+        //        products.forEach({addSimilarProducts(to: $0)})
+        
         addProducts()
         
+        ////        if let product = extendedProducts.shuffled().prefix(1).first {
+        //        if let product = extendedProducts.filter({$0.slug.contains("--")}).first {
+        //
+        //            let code = product.code
+        //
+        //            let sim1 = getSimilarProducts(for: product, by: .brand, maxCount: 4)
+        //            let sim2 = getSimilarProducts(for: product, by: .category, maxCount: 4)
+        //            let codes = (sim1 + sim2).map({$0.code}).shuffled()
+        //            print(codes)
+        //            print(sim2)
+        //        }
+    }
+    
+    
+    func addSimilarProducts(to product: ExtendedProduct) {
         
+        let sim1 = getSimilarProducts(for: product, by: .brand, maxCount: 4)
+        let sim2 = getSimilarProducts(for: product, by: .category, maxCount: 4)
+        let codes = (sim1 + sim2).map({$0.code}).shuffled().joined(separator: ",")
+        
+        let dic: [String: Any] = [
+            "associations" : [
+                "similar-products": codes
+            ],
+        ]
+        
+        callApi("products/\(product.code)", method: .PATCH, dic: dic, success: {
+            let titles = (sim1 + sim2).map({$0.title}).joined(separator: "\n")
+            print("similar products: \n\(titles)\n added to \(product.title)")
+        }, successStatus: .noContent)
+        
+    }
+    
+    
+    func callApi(_ endPoint: String, method: HTTPMethod = .POST, dic: [String: Any], caller: String = #function, success: @escaping ()->Void, successStatus: HTTPResponseStatus = .created, error: (()->Void)? = nil, completion: (()->Void)? = nil) {
+        
+        guard let headers = headers else {
+            return
+        }
+        
+        let jsonData = try! JSONSerialization.data(withJSONObject: dic, options: .prettyPrinted)
+        
+        let body = HTTPBody(data: jsonData)
+        
+        let httpReq = HTTPRequest(
+            method: method,
+            url: URL(string: apiUrl(url: endPoint))!,
+            headers: headers,
+            body: body)
+        
+        
+        _ = HTTPClient.connect(hostname: "http://deeptee.test", on: container).map({ (client) -> Future<HTTPResponse> in
+            return client.send(httpReq).map({ (response) -> HTTPResponse in
+                
+                if let completion = completion {
+                    completion()
+                }
+                
+                if response.status == successStatus {
+                    success()
+                } else {
+                    guard let errorMethod = error else {
+                        print("\(caller) error: XXXXXXXXXXXXXXX")
+                        print("url: \(httpReq.url.relativeString)")
+                        print("input:")
+                        print(String(data: jsonData, encoding: .utf8 )!)
+                        print("response:")
+                        print(response)
+                        print("\(caller) error: XXXXXXXXXXXXXXX")
+                        
+                        return response
+                    }
+                    
+                    errorMethod()
+                }
+                
+                return response
+            })
+        })
     }
     
     func addProducts() {
@@ -101,11 +184,10 @@ class ProductImporter: CoreImporter {
         return mainTaxon
     }
     
+    /// adds a product to shop using Product API
+    ///
+    /// - Parameter product: An ExtendedProduct instance to be added
     func addProduct(product: ExtendedProduct) {
-        
-        guard let headers = headers else {
-            return
-        }
         
         var attributes = [[String: Any]]()
         for attribute in product.specs ?? [] {
@@ -147,7 +229,8 @@ class ProductImporter: CoreImporter {
         
         var dic: [String: Any] = [
             "code" : product.code,
-            "channels" : ["default"],
+            "channels" : ["default", "deeptee"],
+            "enabled": true,
             "translations" : [
                 "en_US" : [
                     "name": product.title,
@@ -173,111 +256,121 @@ class ProductImporter: CoreImporter {
             dic["options"] = options
         }
         
-        
-        
-        let jsonData = try! JSONSerialization.data(withJSONObject: dic, options: .prettyPrinted)
-                
-        let body = HTTPBody(data: jsonData)
-        
-        let httpReq = HTTPRequest(
-            method: .POST,
-            url: URL(string: apiUrl(url: "products/"))!,
-            headers: headers,
-            body: body)
-        
-        
-        _ = HTTPClient.connect(hostname: "http://deeptee.test", on: container).map({ (client) in
-            return client.send(httpReq).map({ (response) -> HTTPResponse in
-                if response.status == .created {
-                    print("--- \(product.title) added ---")
-                } else {
-                    print("product error: XXXXXXXXXXXXXXX")
-                    print("input:")
-                    print(String(data: jsonData, encoding: .utf8 )!)
-                    print("response:")
-                    print(response)
-                    print("product error: XXXXXXXXXXXXXXX")
-                }
-
-                
-                self.addVariant(for: product)
-                return response
-            })
+        callApi("products/", dic: dic, success: {
+            print("--- \(product.title) added ---")
+            self.addVariant(for: product)
         })
+        
     }
     
     
     func addVariant(for product: ExtendedProduct) {
         
-        guard product.options?.count ?? 0 > 1 else {
-            self.productsAddedCount += 1
-            return
+        if product.options?.count ?? 0 > 1 {
+            
+            for option in product.options! {    // multiple option variants
+                let dic: [String: Any] = [
+                    "code": getOptionCode(option: option)+"-\(product.id)-variant",
+                    "translations": [
+                        "en_US" : [
+                            "name": option.optionLabel,
+                        ],
+                        "fa_IR" : [
+                            "name": option.optionLabel,
+                        ]
+                    ],
+                    "tracked": true,
+                    "onHand": 99,
+                    "optionValues": [
+                        option.optionLabel.slugify(): getOptionCode(option: option)
+                    ],
+                    "channelPricings": [
+                        "default": [
+                            "price": option.optionPrice == 0 ? product.price : product.price+option.optionPrice
+                        ],
+                        "deeptee": [
+                            "price": option.optionPrice == 0 ? product.price : product.price+option.optionPrice
+                        ]
+                    ]
+                ]
+                
+                callApi("products/\(product.code)/variants/", dic: dic, success: {
+                    _ = product.options?.map({print("\($0.optionLabel) added with value \($0.optionValue)")})
+                }, completion: {
+                    self.productsAddedCount += 1
+                })
+            }
+        } else {        // single variant
+            let dic: [String: Any] = [
+                "code": "\(product.code)-variant",
+                "translations": [
+                    "en_US" : [
+                        "name": product.code,
+                    ],
+                    "fa_IR" : [
+                        "name": product.code,
+                    ]
+                ],
+                "tracked": true,
+                "onHand": 99,
+                "channelPricings": [
+                    "default": [
+                        "price": product.price
+                    ],
+                    "deeptee": [
+                        "price": product.price
+                    ]
+                ]
+            ]
+            
+            callApi("products/\(product.code)/variants/", dic: dic, success: {
+                print("product variant \(product.code)-variant added")
+            }, completion: {
+                self.productsAddedCount += 1
+            })
+            
         }
+    }
+    
+    func callVariantAPI(for product: ExtendedProduct, dic: [String: Any]) {
+        
         
         guard let headers = headers else {
             return
         }
         
         
-        for option in product.options! {
-            let dic: [String: Any] = [
-                "code": getOptionCode(option: option)+"-\(product.id)-variant",
-                "translations": [
-                    "en_US" : [
-                        "name": option.optionLabel,
-                    ],
-                    "fa_IR" : [
-                        "name": option.optionLabel,
-                    ]
-                ],
-                "tracked": true,
-                "optionValues": [
-                    option.optionLabel.slugify(): getOptionCode(option: option)
-                ],
-                "channelPricings": [
-                    "default": [
-                        "price": option.optionPrice == 0 ? product.price : product.price+option.optionPrice
-                    ]
-                ]
-            ]
-            
-            
-            
-            
-            let jsonData = try! JSONSerialization.data(withJSONObject: dic, options: .prettyPrinted)
-            
-            let body = HTTPBody(data: jsonData)
-            
-            let httpReq = HTTPRequest(
-                method: .POST,
-                url: URL(string: apiUrl(url: "products/\(product.code)/variants/"))!,
-                headers: headers,
-                body: body)
-            
-            
-            _ = HTTPClient.connect(hostname: "http://deeptee.test", on: container).map({ (client) in
-                return client.send(httpReq).map({ (response) -> HTTPResponse in
-
-                    self.productsAddedCount += 1
-
-                    if response.status == .created {
-                        _ = product.options?.map({print("\($0.optionLabel) added with value \($0.optionValue)")})
-                    } else {
-                        print("variant error: XXXXXXXXXXXXXXX")
-                        print("input:")
-                        print(String(data: jsonData, encoding: .utf8 )!)
-                        print("response:")
-                        print(response)
-                        print("variant error: XXXXXXXXXXXXXXX")
-                    }
-                    return response
-                })
+        let jsonData = try! JSONSerialization.data(withJSONObject: dic, options: .prettyPrinted)
+        
+        let body = HTTPBody(data: jsonData)
+        
+        let httpReq = HTTPRequest(
+            method: .POST,
+            url: URL(string: apiUrl(url: "products/\(product.code)/variants/"))!,
+            headers: headers,
+            body: body)
+        
+        
+        _ = HTTPClient.connect(hostname: "http://deeptee.test", on: container).map({ (client) in
+            return client.send(httpReq).map({ (response) -> HTTPResponse in
+                
+                self.productsAddedCount += 1
+                
+                if response.status == .created {
+                    _ = product.options?.map({print("\($0.optionLabel) added with value \($0.optionValue)")})
+                } else {
+                    print("variant error: XXXXXXXXXXXXXXX")
+                    print("input:")
+                    print(String(data: jsonData, encoding: .utf8 )!)
+                    print("response:")
+                    print(response)
+                    print("variant error: XXXXXXXXXXXXXXX")
+                }
+                return response
             })
-            
-            
-            
-        }
+        })
     }
+    
     
     func getAttributes() -> Future<[AstinProductSpec]> {
         return container.withPooledConnection(to: .sqlite) { (conn) -> Future<[AstinProductSpec]> in
@@ -287,10 +380,6 @@ class ProductImporter: CoreImporter {
     
     
     func addAttributes(attribute: AstinProductSpec) {
-        
-        guard let headers = headers else {
-            return
-        }
         
         let dic: [String: Any] = [
             "code" : attribute.name!.slugify(),
@@ -304,31 +393,10 @@ class ProductImporter: CoreImporter {
             ]
         ]
         
-        let jsonData = try! JSONSerialization.data(withJSONObject: dic, options: .prettyPrinted)
-        
-        let body = HTTPBody(data: jsonData)
-        
-        let httpReq = HTTPRequest(
-            method: .POST,
-            url: URL(string: apiUrl(url: "product-attributes/text"))!,
-            headers: headers,
-            body: body)
-        
-        
-        let client = try! HTTPClient.connect(hostname: "http://deeptee.test", on: container).wait()
-        let response = try! client.send(httpReq).wait()
-
-        if response.status == .created {
+        callApi("product-attributes/text", dic: dic, success: {
             print("\(attribute.name ?? "unknown") added with value \(attribute.value ?? "unknown")")
-        } else {
-            print("attribute error: XXXXXXXXXXXXXXX")
-            print("input:")
-            print(String(data: jsonData, encoding: .utf8 )!)
-            print("response:")
-            print(response)
-            print("attribute error: XXXXXXXXXXXXXXX")
-        }
-
+        })
+        
     }
     
     
@@ -347,10 +415,6 @@ class ProductImporter: CoreImporter {
     
     
     func addOptionValues(option: AstinProductOption, values: [String]) {
-        
-        guard let headers = headers else {
-            return
-        }
         
         var optionValues = [[String: Any]]()
         for value in values {
@@ -380,36 +444,9 @@ class ProductImporter: CoreImporter {
             "values" : optionValues
         ]
         
-        
-        
-        let jsonData = try! JSONSerialization.data(withJSONObject: dic, options: .prettyPrinted)
-        
-        print(String(data: jsonData, encoding: .utf8 )!)
-        
-        let body = HTTPBody(data: jsonData)
-        
-        let httpReq = HTTPRequest(
-            method: .POST,
-            url: URL(string: apiUrl(url: "product-options/"))!,
-            headers: headers,
-            body: body)
-        
-        
-        let client = try! HTTPClient.connect(hostname: "http://deeptee.test", on: container).wait()
-        let response = try! client.send(httpReq).wait()
-        
-        
-        
-        if response.status == .created {
+        callApi("product-options/", dic: dic, success: {
             print("\(option.optionLabel) added with values [\(values.joined(separator: "|"))]")
-        } else {
-            print("option error: XXXXXXXXXXXXXXX")
-            print("input:")
-            print(String(data: jsonData, encoding: .utf8 )!)
-            print("response:")
-            print(response)
-            print("option error: XXXXXXXXXXXXXXX")
-        }
+        })
         
     }
     
@@ -447,7 +484,34 @@ class ProductImporter: CoreImporter {
         
     }
     
+    enum Similarity {
+        case category
+        case brand
+    }
     
+    func getSimilarProducts(for product: ExtendedProduct, by: Similarity, maxCount: Int) -> [ExtendedProduct] {
+        
+        switch by {
+        case .brand:
+            let products = self.products.filter({ similarProduct in
+                return similarProduct.brandId == product.brandId &&
+                    similarProduct.id != product.id
+            }).shuffled().prefix(Int.random(in: 2...maxCount))
+            return Array(products)
+        case .category:
+            if let lastCategory = product.categories.map({self.categoryTree?.search($0)}).filter({$0?.children.count == 0}).first {
+                let categoryId = lastCategory?.value.id
+                let products = self.products.filter({ similarProduct in
+                    return similarProduct.categories.map({$0.id}).contains(categoryId) &&
+                        similarProduct.id != product.id
+                }).shuffled().prefix(Int.random(in: 2...maxCount))
+                return Array(products)
+            }
+        }
+        
+        return []
+    }
+
     
 }
 
@@ -480,4 +544,51 @@ extension Array where Element: Equatable {
         }
         return false
     }
+}
+
+
+// delete methods
+extension ProductImporter {
+    
+    func deleteProducts(products: [ExtendedProduct]) {
+        products.forEach { (product) in
+            DispatchQueue.global(qos: .background).async {
+                self.deleteProduct(product: product)
+            }
+        }
+    }
+    
+    func deleteProduct(product: ExtendedProduct) {
+        
+        guard let headers = headers else {
+            return
+        }
+        
+        let httpReq = HTTPRequest(
+            method: .DELETE,
+            url: URL(string: apiUrl(url: "products/\(product.code)"))!,
+            headers: headers)
+        
+        
+        let client = try! HTTPClient.connect(hostname: "http://deeptee.test", on: container).wait()
+        let response = try! client.send(httpReq).wait()
+        self.productsAddedCount += 1
+        print(response)
+    }
+    
+    func deleteAllProducts() {
+        productsAddedCount = 0
+        let products = self.products.prefix(productsInPass)
+        print("******************************************")
+        print("*")
+        print("*")
+        print("*   adding products \(totalProducts - (self.products.count - self.productsInPass)) of \(totalProducts)")
+        print("*")
+        print("*")
+        print("******************************************")
+        deleteProducts(products: Array(products))
+        products.forEach({self.products.remove(object: $0)})
+        
+    }
+    
 }
