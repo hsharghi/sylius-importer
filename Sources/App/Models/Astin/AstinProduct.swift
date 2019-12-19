@@ -101,9 +101,21 @@ class ExtendedProduct {
         self.options = options
     }
     
-    var code: String {
+    var slug: String {
         return "\(self.title.slugify())-\(self.id)"
     }
+    
+    var code: String {
+        let code = self.title.slugify()
+            .split(separator: "-")
+            .map({$0.prefix(1)})
+            .joined()
+            .uppercased()
+            .appending("\(self.id)")
+    
+        return code
+    }
+
 }
 
 extension ExtendedProduct: Equatable {
