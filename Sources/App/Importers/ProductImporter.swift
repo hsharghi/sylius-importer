@@ -8,6 +8,7 @@
 import Vapor
 import Fluent
 import FluentSQLite
+import FluentMySQL
 
 class ProductImporter: CoreImporter {
     
@@ -23,8 +24,8 @@ class ProductImporter: CoreImporter {
         didSet {
             //            print("productsAddedCount = \(productsAddedCount)")
             if productsAddedCount == productsInPass {
-                addProducts()
-                //                deleteAllProducts()
+//                addProducts()
+                deleteAllProducts()
             }
         }
     }
@@ -33,9 +34,9 @@ class ProductImporter: CoreImporter {
         
         super.start()
         
-        categoryTree = try! categoriesAsTree().wait()
+//        categoryTree = try! categoriesAsTree().wait()
         
-        
+//        uploadProductImage(from: 81, to: 4283)
         //        /// Save product attributes
         //        let specs = try! getAttributes().wait()
         //        specs.forEach({ self.addAttributes(attribute: $0)})
@@ -52,14 +53,14 @@ class ProductImporter: CoreImporter {
         //        }
         
         //        /// Save products and assign attributes / options
-        print("populating products list...")
-        let extendedProducts = try! getProductsAsExtendedProduct(limit: 4).wait()
+//        print("populating products list...")
+        let extendedProducts = try! getProductsAsExtendedProduct(limit: 100).wait()
         totalProducts = extendedProducts.count
         print("done.\n adding products to deeptee...")
-        products = extendedProducts
-        //        deleteAllProducts()
+        products = extendedProducts.shuffled()
+//        deleteAllProducts()
         
-        //        products.forEach({addSimilarProducts(to: $0)})
+//                products.forEach({addSimilarProducts(to: $0)})
         
         addProducts()
         
@@ -76,6 +77,57 @@ class ProductImporter: CoreImporter {
         //        }
     }
     
+    func uploadProductImage(from astinProductId: Int, to syliusProductId: Int) {
+        
+        let fileManage = FileManager()
+
+        do {
+            let images = try fileManage.contentsOfDirectory(atPath: workingDirectory + "/data/images/\(astinProductId)")
+            var files = [File]()
+            var productImages = [ProductImage]()
+            
+            for imageName in images {
+                if let data = fileManage.contents(atPath: "\(workingDirectory)/data/images/\(astinProductId)/\(imageName)") {
+                    guard files.filter({$0.data == data}).first == nil else {
+                        continue
+                    }
+                    files.append(File(data: data, filename: workingDirectory + "/data/images/\(astinProductId)/\(imageName)"))
+                }
+            }
+            
+            let imageDirectory = websiteDirectory + "/public/media/image/\(syliusProductId)"
+            if !fileManage.fileExists(atPath: imageDirectory) {
+                try! fileManage.createDirectory(atPath: imageDirectory, withIntermediateDirectories: false, attributes: nil)
+            }
+            files.forEach({ file in
+                let newImageName = "\(ProcessInfo.processInfo.globallyUniqueString).\(file.ext!)"
+                let to = "\(imageDirectory)/\(newImageName)";
+                try! fileManage.copyItem(atPath: file.filename, toPath: to)
+                productImages.append(ProductImage(owner_id: syliusProductId, type: "", path: "\(syliusProductId)/\(newImageName)"))
+            })
+
+            _ = container.withPooledConnection(to: .mysql, closure: { conn -> Future<[ProductImage]> in
+                productImages.map({ productImage in
+                    productImage.save(on: conn).catchMap { (error) -> (ProductImage) in
+                        print(error)
+                        return productImage
+                    }.map { (productImage) -> ProductImage in
+                        print("assigned \(productImage.path) to product: \(productImage.owner_id)")
+                        return productImage
+                    }
+                }).flatten(on: self.container)
+            })
+            
+            
+        } catch {
+            print(error)
+        }
+        
+        
+        
+    }
+    
+
     
     func addSimilarProducts(to product: ExtendedProduct) {
         
@@ -92,12 +144,20 @@ class ProductImporter: CoreImporter {
         callApi("products/\(product.code)", method: .PATCH, dic: dic, success: {
             let titles = (sim1 + sim2).map({$0.title}).joined(separator: "\n")
             print("similar products: \n\(titles)\n added to \(product.title)")
-        }, successStatus: .noContent)
+        }, successStatus: .noContent, async: false)
         
     }
     
     
-    func callApi(_ endPoint: String, method: HTTPMethod = .POST, dic: [String: Any], caller: String = #function, success: @escaping ()->Void, successStatus: HTTPResponseStatus = .created, error: (()->Void)? = nil, completion: (()->Void)? = nil) {
+    func callApi(_ endPoint: String,
+                 method: HTTPMethod = .POST,
+                 dic: [String: Any],
+                 caller: String = #function,
+                 success: @escaping ()->Void,
+                 successStatus: HTTPResponseStatus = .created,
+                 error: (()->Void)? = nil,
+                 completion: ((_ response: HTTPResponse)->Void)? = nil,
+                 async: Bool = true) {
         
         guard let headers = headers else {
             return
@@ -113,35 +173,60 @@ class ProductImporter: CoreImporter {
             headers: headers,
             body: body)
         
-        
-        _ = HTTPClient.connect(hostname: "http://deeptee.test", on: container).map({ (client) -> Future<HTTPResponse> in
-            return client.send(httpReq).map({ (response) -> HTTPResponse in
-                
-                if let completion = completion {
-                    completion()
-                }
-                
-                if response.status == successStatus {
-                    success()
-                } else {
-                    guard let errorMethod = error else {
-                        print("\(caller) error: XXXXXXXXXXXXXXX")
-                        print("url: \(httpReq.url.relativeString)")
-                        print("input:")
-                        print(String(data: jsonData, encoding: .utf8 )!)
-                        print("response:")
-                        print(response)
-                        print("\(caller) error: XXXXXXXXXXXXXXX")
-                        
-                        return response
+        if async {
+            _ = HTTPClient.connect(hostname: "http://deeptee.test", on: container).map({ (client) -> Future<HTTPResponse> in
+                return client.send(httpReq).map({ (response) -> HTTPResponse in
+                    
+                    if let completion = completion {
+                        completion(response)
                     }
                     
-                    errorMethod()
+                    if response.status == successStatus {
+                        success()
+                    } else {
+                        guard let errorMethod = error else {
+                            print("\(caller) error: XXXXXXXXXXXXXXX")
+                            print("url: \(httpReq.url.relativeString)")
+                            print("input:")
+                            print(String(data: jsonData, encoding: .utf8 )!)
+                            print("response:")
+                            print(response)
+                            print("\(caller) error: XXXXXXXXXXXXXXX")
+                            
+                            return response
+                        }
+                        
+                        errorMethod()
+                    }
+                    
+                    return response
+                })
+            })
+        } else {
+            let client = try! HTTPClient.connect(hostname: "http://deeptee.test", on: container).wait()
+            let response = try! client.send(httpReq).wait()
+            
+            if let completion = completion {
+                completion(response)
+            }
+            
+            if response.status == successStatus {
+                success()
+            } else {
+                guard let errorMethod = error else {
+                    print("\(caller) error: XXXXXXXXXXXXXXX")
+                    print("url: \(httpReq.url.relativeString)")
+                    print("input:")
+                    print(String(data: jsonData, encoding: .utf8 )!)
+                    print("response:")
+                    print(response)
+                    print("\(caller) error: XXXXXXXXXXXXXXX")
+                    return
                 }
                 
-                return response
-            })
-        })
+                errorMethod()
+            }
+        }
     }
     
     func addProducts() {
@@ -256,13 +341,23 @@ class ProductImporter: CoreImporter {
             dic["options"] = options
         }
         
-        callApi("products/", dic: dic, success: {
+        callApi("products/", dic: dic,
+                success: {
             print("--- \(product.title) added ---")
             self.addVariant(for: product)
+        },
+                completion: { response in
+            if let data = response.body.data {
+                do {
+                    let createdResponse = try JSONDecoder().decode(ProductImage.CreatedProductResponse.self, from: data)
+                    self.uploadProductImage(from: product.id, to: createdResponse.id)
+                } catch {
+                    print("nashod")
+                }
+            }
         })
         
     }
-    
     
     func addVariant(for product: ExtendedProduct) {
         
@@ -296,7 +391,7 @@ class ProductImporter: CoreImporter {
                 
                 callApi("products/\(product.code)/variants/", dic: dic, success: {
                     _ = product.options?.map({print("\($0.optionLabel) added with value \($0.optionValue)")})
-                }, completion: {
+                }, completion: { _ in
                     self.productsAddedCount += 1
                 })
             }
@@ -325,7 +420,7 @@ class ProductImporter: CoreImporter {
             
             callApi("products/\(product.code)/variants/", dic: dic, success: {
                 print("product variant \(product.code)-variant added")
-            }, completion: {
+            }, completion: { _ in
                 self.productsAddedCount += 1
             })
             
