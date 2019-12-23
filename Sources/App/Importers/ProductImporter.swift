@@ -34,12 +34,12 @@ class ProductImporter: CoreImporter {
         
         super.start()
         
-//        categoryTree = try! categoriesAsTree().wait()
+        categoryTree = try! categoriesAsTree().wait()
         
 //        uploadProductImage(from: 81, to: 4283)
-        //        /// Save product attributes
-        //        let specs = try! getAttributes().wait()
-        //        specs.forEach({ self.addAttributes(attribute: $0)})
+//                /// Save product attributes
+//                let specs = try! getAttributes().wait()
+//                specs.forEach({ self.addAttributes(attribute: $0)})
         //
         //
         //        /// Save product options
@@ -54,10 +54,10 @@ class ProductImporter: CoreImporter {
         
         //        /// Save products and assign attributes / options
 //        print("populating products list...")
-        let extendedProducts = try! getProductsAsExtendedProduct(limit: 100).wait()
+        let extendedProducts = try! getProductsAsExtendedProduct(limit: 10).wait()
         totalProducts = extendedProducts.count
         print("done.\n adding products to deeptee...")
-        products = extendedProducts.shuffled()
+        products = extendedProducts
 //        deleteAllProducts()
         
 //                products.forEach({addSimilarProducts(to: $0)})
@@ -347,6 +347,7 @@ class ProductImporter: CoreImporter {
             self.addVariant(for: product)
         },
                 completion: { response in
+                    print(response.status)
             if let data = response.body.data {
                 do {
                     let createdResponse = try JSONDecoder().decode(ProductImage.CreatedProductResponse.self, from: data)
@@ -381,10 +382,10 @@ class ProductImporter: CoreImporter {
                     ],
                     "channelPricings": [
                         "default": [
-                            "price": option.optionPrice == 0 ? product.price : product.price+option.optionPrice
+                            "price": option.optionPrice == 0 ? product.price * 10 : (product.price+option.optionPrice) * 10
                         ],
                         "deeptee": [
-                            "price": option.optionPrice == 0 ? product.price : product.price+option.optionPrice
+                            "price": option.optionPrice == 0 ? product.price * 10 : (product.price+option.optionPrice) * 10
                         ]
                     ]
                 ]
@@ -410,10 +411,10 @@ class ProductImporter: CoreImporter {
                 "onHand": 99,
                 "channelPricings": [
                     "default": [
-                        "price": product.price
+                        "price": product.price * 10
                     ],
                     "deeptee": [
-                        "price": product.price
+                        "price": product.price * 10
                     ]
                 ]
             ]
