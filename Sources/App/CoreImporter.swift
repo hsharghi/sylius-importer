@@ -11,14 +11,17 @@ import Fluent
 class CoreImporter {
     
     var container: Container
+    let workingDirectory = "/Users/hadi/Programming/swift/vapor/SyliusImporter"
+    let websiteDirectory = "/Users/hadi/Sites/deeptee"
+
     private var _client: Client
     private var token: String?
     private var refreshToken: String?
-    
+
     private let baseUrl = "http://deeptee.test/"
     private let apiPrefixUrl = "api/v1/"
-    private let clientId = "3z45us18igis0gg8ossk8cc8socwso0g0so8w0gc8o8g08g00w"
-    private let clientSecret = "4hitvu6b8kcg04woos8wkokckwskw4k88wccgsc08g4sk8cso8"
+    private let clientId = "3uo8t0hp7gcg8s44k4ookwkoo8sk8gs08k0sgsk404k4w00gc4"
+    private let clientSecret = "5ctrdri23544oo080kcsgs8goo8owsg4sg4wkgo0gs0cs0oc0"
     private let username = "hsharghi"
     private let password = "hadi2400"
     
