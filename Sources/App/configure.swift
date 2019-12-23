@@ -23,7 +23,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 
     
     // Configure a MySQL database
-    let dbConfig = MySQLDatabaseConfig(hostname: "127.0.0.1", port: 3306, username: "root", password: "hadi2400", database: "acme")
+    let dbConfig = MySQLDatabaseConfig(hostname: "127.0.0.1", port: 3306, username: "root", password: "hadi2400", database: "deeptee")
     let mysql = MySQLDatabase(config: dbConfig)
 
     // Register the configured SQLite database to the database config.
