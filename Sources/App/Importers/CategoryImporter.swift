@@ -15,9 +15,9 @@ class CategoryImporter: CoreImporter {
     var categoryTree: TreeNode<AstinCategory>?
     
     
-    override func start() {
+    override func start() -> String? {
         
-        super.start()
+        _ = super.start()
         
         categoryTree = try! categoriesAsTree().wait()
         if let root = categoryTree?.search(AstinCategory(id: rootCategoryId, title: "")) {
@@ -36,7 +36,7 @@ class CategoryImporter: CoreImporter {
             }
         }
         
-        print("finished")
+        return nil
 
     }
     

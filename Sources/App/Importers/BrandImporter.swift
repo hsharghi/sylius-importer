@@ -16,9 +16,9 @@ class BrandImporter: CoreImporter {
     var brands = [TreeNode<AstinCategory>]()
     
     
-    override func start() {
+    override func start() -> String? {
         
-        super.start()
+        _ = super.start()
         
         let brands = try! getBrandsAsCategory().wait()
         
@@ -28,6 +28,7 @@ class BrandImporter: CoreImporter {
         addCategory(categoryNode: brandCategory)
         brandCategory.children.forEach({ addCategory(categoryNode: $0) })
 
+        return nil
     }
     
     

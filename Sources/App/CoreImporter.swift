@@ -7,27 +7,49 @@
 
 import Vapor
 import Fluent
+import DotEnv
+
 
 class CoreImporter {
     
     var container: Container
-    let workingDirectory = "/Users/hadi/Programming/swift/vapor/SyliusImporter"
-    let websiteDirectory = "/Users/hadi/Sites/deeptee"
+    var env: DotEnv?
 
     private var _client: Client
-    private var token: String?
-    private var refreshToken: String?
 
-    private let baseUrl = "http://deeptee.test/"
-    private let apiPrefixUrl = "api/v1/"
-    private let clientId = "3uo8t0hp7gcg8s44k4ookwkoo8sk8gs08k0sgsk404k4w00gc4"
-    private let clientSecret = "5ctrdri23544oo080kcsgs8goo8owsg4sg4wkgo0gs0cs0oc0"
-    private let username = "hsharghi"
-    private let password = "hadi2400"
+    var workingDirectory: String!
+    var websiteDirectory: String!
+    private var token: String!
+    private var refreshToken: String!
+
+    private var baseUrl: String!
+    private var apiPrefixUrl: String!
+    private var clientId: String!
+    private var clientSecret: String!
+    private var username: String!
+    private var password: String!
     
     init(container: Container) throws {
         self.container = container
         try self._client = container.client()
+        initVars();
+        
+    }
+    
+    private func initVars() {
+        
+        env = DotEnv(withFile: ".env")
+        
+        workingDirectory = env?.get("WORK_DIR")!
+        websiteDirectory = env?.get("SITE_DIR")!
+        baseUrl = env?.get("API_BASE_URL")!
+        apiPrefixUrl = env?.get("API_PREFIX")!
+        clientId = env?.get("API_CLIENT_ID")!
+        clientSecret = env?.get("API_CLIENT_SECRET")!
+        username = env?.get("SYLIUS_USERNAME")!
+        password = env?.get("SYLIUD_PASSWORD")!
+        
+        
     }
 
     var client: Client {
@@ -48,8 +70,9 @@ class CoreImporter {
 
     }
 
-    open func start() {
+    open func start() -> String? {
         _ = try! login(username: username, password: password)?.wait()
+        return nil
     }
 
     func apiUrl(url: String) -> String {
@@ -58,7 +81,7 @@ class CoreImporter {
     
     func login(username: String, password: String) -> Future<String>? {
         
-        let url = "\(baseUrl)api/oauth/v2/token?client_id=\(clientId)&client_secret=\(clientSecret)&grant_type=password&username=\(username)&password=\(password)"
+        let url = "\(baseUrl!)api/oauth/v2/token?client_id=\(clientId!)&client_secret=\(clientSecret!)&grant_type=password&username=\(username)&password=\(password)"
         
         return client.get(url).map({ response -> String in
             
@@ -83,7 +106,7 @@ class CoreImporter {
                     return loginResponse.access_token
                 }
             case .badRequest:
-                if let errorResponse = self.encode(from: data, to: ServerError.self) {
+                if let _ = self.encode(from: data, to: ServerError.self) {
                     return ""
                 }
             default: break
@@ -258,6 +281,32 @@ extension CoreImporter {
             }
         }
     }
+    
+    
+}
+
+
+
+class AppConfig {
+    
+    var configFile: String {
+        didSet {
+            parseConfigFile()
+        }
+    }
+    
+    var config = [String:String]()
+    
+    init(configFile: String) {
+        self.configFile = configFile
+    }
+    
+    
+    func parseConfigFile() {
+        self.config = [:]
+    }
+    
+    
     
     
 }

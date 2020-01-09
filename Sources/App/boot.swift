@@ -6,13 +6,14 @@ public func boot(_ app: Application) throws {
     
     
 //    let categoryImporter = try CategoryImporter(container: app)
-//    categoryImporter.start()
-//    
+//    _ = categoryImporter.start()
+//////
 //    let brandImporter = try BrandImporter(container: app)
-//    brandImporter.start()
-//
+//    _ = brandImporter.start()
+
     let productImporter = try ProductImporter(container: app)
-    productImporter.start()
+    _ = productImporter.start()
+    
     
     
 }

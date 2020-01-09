@@ -16,53 +16,92 @@ class ProductImporter: CoreImporter {
     var astinCategories = [AstinCategory]()
     var categoryTree: TreeNode<AstinCategory>?
     var products = [ExtendedProduct]()
-    let productsInPass = 30
+    let productsInPass = 10
     var totalProducts = 0
+    var productToImport : Int?
     
+    //
+    var imagesDirectoryPath: String?
+    var websiteRootPath: String?
+    var importImages: Bool = true
+    
+    convenience init(container: Container, productsToImport: Int? = nil) throws {
+        try self.init(container: container)
+        if let count = productsToImport {
+            self.productToImport = count
+        }
+    }
     
     var productsAddedCount = 0 {
         didSet {
             //            print("productsAddedCount = \(productsAddedCount)")
             if productsAddedCount == productsInPass {
-//                addProducts()
-                deleteAllProducts()
+                addProducts()
+//                deleteAllProducts()
             }
         }
     }
     
-    override func start() {
+    func commandImportProduct(numberOfProducts: Int? = nil, importImages: Bool = true, rawImagesPath: String? = nil, websiteRootPath: String? = nil) -> String? {
+
+        if importImages && (rawImagesPath == nil || websiteRootPath == nil) {
+            return "Undefined images or website path"
+        }
         
-        super.start()
+        self.imagesDirectoryPath = rawImagesPath
+        self.websiteRootPath = websiteRootPath
+        self.importImages = importImages
         
         categoryTree = try! categoriesAsTree().wait()
+        if categoryTree == nil || categoryTree?.children.count == 0 {
+            return "Error: No category. First import categories and brands"
+        }
         
-//        uploadProductImage(from: 81, to: 4283)
+        let extendedProducts = try! getProductsAsExtendedProduct(limit: numberOfProducts).wait()
+        totalProducts = extendedProducts.count
+        print("done.\n adding products to deeptee...")
+        products = extendedProducts
+        addProducts()
+
+        return nil
+        
+    }
+    
+    override func start() -> String? {
+        
+        _ = super.start()
+        
+        categoryTree = try! categoriesAsTree().wait()
+        if categoryTree == nil || categoryTree?.children.count == 0 {
+            return "Error: No category. First import categories and brands"
+        }
+        
 //                /// Save product attributes
 //                let specs = try! getAttributes().wait()
 //                specs.forEach({ self.addAttributes(attribute: $0)})
-        //
-        //
-        //        /// Save product options
-        //        let allOptions = try! getAllOptions().wait()
-        //        let groupOptions = try! getOptions().wait()
-        //        groupOptions.forEach { (option) in
-        //            let options = allOptions.filter({$0.optionLabel == option.optionLabel})
-        //            if options.count > 1 {
-        //                addOptionValues(option: option, values: Array(Set(options.compactMap({$0.optionValue}))))
-        //            }
-        //        }
-        
-        //        /// Save products and assign attributes / options
+//
+//
+//        /// Save product options
+//        let allOptions = try! getAllOptions().wait()
+//        let groupOptions = try! getOptions().wait()
+//        groupOptions.forEach { (option) in
+//            let options = allOptions.filter({$0.optionLabel == option.optionLabel})
+//            if options.count > 1 {
+//                addOptionValues(option: option, values: Array(Set(options.compactMap({$0.optionValue}))))
+//            }
+//        }
+
+//        /// Save products and assign attributes / options
 //        print("populating products list...")
-        let extendedProducts = try! getProductsAsExtendedProduct(limit: 10).wait()
+        let extendedProducts = try! getProductsAsExtendedProduct(limit: env?.getAsInt("TOTAL_PRODUCTS_TO_IMPORT")).wait()
         totalProducts = extendedProducts.count
         print("done.\n adding products to deeptee...")
         products = extendedProducts
 //        deleteAllProducts()
         
-//                products.forEach({addSimilarProducts(to: $0)})
+        products.forEach({addSimilarProducts(to: $0)})
         
-        addProducts()
+//        addProducts()
         
         ////        if let product = extendedProducts.shuffled().prefix(1).first {
         //        if let product = extendedProducts.filter({$0.slug.contains("--")}).first {
@@ -75,6 +114,7 @@ class ProductImporter: CoreImporter {
         //            print(codes)
         //            print(sim2)
         //        }
+        return nil
     }
     
     func uploadProductImage(from astinProductId: Int, to syliusProductId: Int) {
@@ -82,20 +122,20 @@ class ProductImporter: CoreImporter {
         let fileManage = FileManager()
 
         do {
-            let images = try fileManage.contentsOfDirectory(atPath: workingDirectory + "/data/images/\(astinProductId)")
+            let images = try fileManage.contentsOfDirectory(atPath: "\(imagesDirectoryPath!)/\(astinProductId)")
             var files = [File]()
             var productImages = [ProductImage]()
             
             for imageName in images {
-                if let data = fileManage.contents(atPath: "\(workingDirectory)/data/images/\(astinProductId)/\(imageName)") {
+                if let data = fileManage.contents(atPath: "\(imagesDirectoryPath!)/\(astinProductId)/\(imageName)") {
                     guard files.filter({$0.data == data}).first == nil else {
                         continue
                     }
-                    files.append(File(data: data, filename: workingDirectory + "/data/images/\(astinProductId)/\(imageName)"))
+                    files.append(File(data: data, filename: "\(imagesDirectoryPath!)/\(astinProductId)/\(imageName)"))
                 }
             }
             
-            let imageDirectory = websiteDirectory + "/public/media/image/\(syliusProductId)"
+            let imageDirectory = websiteRootPath! + "/public/media/image/\(syliusProductId)"
             if !fileManage.fileExists(atPath: imageDirectory) {
                 try! fileManage.createDirectory(atPath: imageDirectory, withIntermediateDirectories: false, attributes: nil)
             }
@@ -131,8 +171,10 @@ class ProductImporter: CoreImporter {
     
     func addSimilarProducts(to product: ExtendedProduct) {
         
-        let sim1 = getSimilarProducts(for: product, by: .brand, maxCount: 4)
-        let sim2 = getSimilarProducts(for: product, by: .category, maxCount: 4)
+        let maxSimilarProducts = env?.getAsInt("MAX_SIMILAR_PRODUCTS_PER_PRODUCT") ?? 8
+        
+        let sim1 = getSimilarProducts(for: product, by: .brand, maxCount: Int(maxSimilarProducts/2))
+        let sim2 = getSimilarProducts(for: product, by: .category, maxCount: Int(maxSimilarProducts/2))
         let codes = (sim1 + sim2).map({$0.code}).shuffled().joined(separator: ",")
         
         let dic: [String: Any] = [
@@ -343,19 +385,21 @@ class ProductImporter: CoreImporter {
         
         callApi("products/", dic: dic,
                 success: {
-            print("--- \(product.title) added ---")
-            self.addVariant(for: product)
+                    print("--- \(product.title) added ---")
+                    self.addVariant(for: product)
         },
                 completion: { response in
                     print(response.status)
-            if let data = response.body.data {
-                do {
-                    let createdResponse = try JSONDecoder().decode(ProductImage.CreatedProductResponse.self, from: data)
-                    self.uploadProductImage(from: product.id, to: createdResponse.id)
-                } catch {
-                    print("nashod")
-                }
-            }
+                    if self.importImages {
+                        if let data = response.body.data {
+                            do {
+                                let createdResponse = try JSONDecoder().decode(ProductImage.CreatedProductResponse.self, from: data)
+                                self.uploadProductImage(from: product.id, to: createdResponse.id)
+                            } catch {
+                                print("can't get imported product's data")
+                            }
+                        }
+                    }
         })
         
     }
@@ -553,12 +597,15 @@ class ProductImporter: CoreImporter {
     
     
     
-    func getProductsAsExtendedProduct(limit: Int? = nil) -> Future<[ExtendedProduct]> {
+    func getProductsAsExtendedProduct(limit: Int? = nil, categoryIds: [Int]? = nil) -> Future<[ExtendedProduct]> {
         
         return container.withPooledConnection(to: .sqlite) { (conn) -> EventLoopFuture<[ExtendedProduct]> in
             var query = AstinProduct.query(on: conn)
             if let limit = limit {
                 query = query.range(...limit)
+            }
+            if let categoryIds = categoryIds {
+                query.join(\AstinCategoryProductPivot.productId, to: \AstinProduct.id, method: .inner).filter(\AstinCategoryProductPivot.categoryId ~~ categoryIds)
             }
             return query.all().flatMap { (products) -> Future<[ExtendedProduct]> in
                 try products.map { (product) -> Future<ExtendedProduct> in
