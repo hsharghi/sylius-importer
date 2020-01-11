@@ -32,7 +32,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     var databases = DatabasesConfig()
     databases.add(database: sqlite, as: .sqlite)
     databases.add(database: mysql, as: .mysql)
-    databases.enableLogging(on: .sqlite)
+//    databases.enableLogging(on: .sqlite)
 
     services.register(databases)
 
