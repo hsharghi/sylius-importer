@@ -20,8 +20,11 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     services.register(middlewares)
 
     // Configure a SQLite database
-    let env = DotEnv(withFile: ".env")
-    let sqlite = try SQLiteDatabase(storage: .file(path: env.get("ASTIN_DB")!))
+    guard let astinDB = DotEnv(withFile: ".env").get("ASTIN_DB") else {
+        print("invalid ASTIN_DB value")
+        throw ENVError.invalidValue("invalid ASTIN_DB value")
+    }
+    let sqlite = try SQLiteDatabase(storage: .file(path: astinDB))
 
     
     // Configure a MySQL database
@@ -42,4 +45,9 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     commandConfig.use(BatteryCommand(), as: "battery")
     services.register(commandConfig)
 
+}
+
+
+enum ENVError: Error {
+    case invalidValue(String)
 }
