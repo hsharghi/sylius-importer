@@ -245,14 +245,14 @@ class ProductImporter: CoreImporter {
                 })
             })
         } else {
-            let client = try! HTTPClient.connect(hostname: baseUrl, on: container).wait()
-            let response = try! client.send(httpReq).wait()
+            let request = Request(http: httpReq, using: container)
+            let response = try! request.client().send(request).wait()
             
             if let completion = completion {
-                completion(response)
+                completion(response.http)
             }
             
-            if response.status == successStatus {
+            if response.http.status == successStatus {
                 success()
             } else {
                 guard let errorMethod = error else {
