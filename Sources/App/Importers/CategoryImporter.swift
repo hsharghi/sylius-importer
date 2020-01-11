@@ -77,9 +77,10 @@ class CategoryImporter: CoreImporter {
                 body: body)
 
         
-        let client = try! HTTPClient.connect(hostname: baseUrl, on: container).wait()
-        let response = try! client.send(httpReq).wait()
-        print(response)
+        let request = Request(http: httpReq, using: container)
+        let response = try! request.client().send(request).wait()
+        
+        print(response.http)
         
     }
 

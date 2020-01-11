@@ -216,14 +216,15 @@ class ProductImporter: CoreImporter {
             body: body)
         
         if async {
-            _ = HTTPClient.connect(hostname: baseUrl, on: container).map({ (client) -> Future<HTTPResponse> in
-                return client.send(httpReq).map({ (response) -> HTTPResponse in
+            let request = Request(http: httpReq, using: container)
+
+                _ = client.send(request).map({ (response) -> HTTPResponse in
                     
                     if let completion = completion {
-                        completion(response)
+                        completion(response.http)
                     }
                     
-                    if response.status == successStatus {
+                    if response.http.status == successStatus {
                         success()
                     } else {
                         guard let errorMethod = error else {
@@ -235,15 +236,14 @@ class ProductImporter: CoreImporter {
                             print(response)
                             print("\(caller) error: XXXXXXXXXXXXXXX")
                             
-                            return response
+                            return response.http
                         }
                         
                         errorMethod()
                     }
                     
-                    return response
+                    return response.http
                 })
-            })
         } else {
             let request = Request(http: httpReq, using: container)
             let response = try! request.client().send(request).wait()
@@ -490,13 +490,13 @@ class ProductImporter: CoreImporter {
             headers: headers,
             body: body)
         
-        
-        _ = HTTPClient.connect(hostname: baseUrl, on: container).map({ (client) in
-            return client.send(httpReq).map({ (response) -> HTTPResponse in
+        let request = Request(http: httpReq, using: container)
+
+            _ = client.send(request).map({ (response) -> HTTPResponse in
                 
                 self.productsAddedCount += 1
                 
-                if response.status == .created {
+                if response.http.status == .created {
                     _ = product.options?.map({print("\($0.optionLabel) added with value \($0.optionValue)")})
                 } else {
                     print("variant error: XXXXXXXXXXXXXXX")
@@ -506,9 +506,8 @@ class ProductImporter: CoreImporter {
                     print(response)
                     print("variant error: XXXXXXXXXXXXXXX")
                 }
-                return response
+                return response.http
             })
-        })
     }
     
     
@@ -713,10 +712,11 @@ extension ProductImporter {
             headers: headers)
         
         
-        let client = try! HTTPClient.connect(hostname: baseUrl, on: container).wait()
-        let response = try! client.send(httpReq).wait()
+        let request = Request(http: httpReq, using: container)
+        let response = try! request.client().send(request).wait()
+
         self.productsAddedCount += 1
-        print(response)
+        print(response.http)
     }
     
     func deleteAllProducts() {

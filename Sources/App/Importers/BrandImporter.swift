@@ -73,10 +73,10 @@ class BrandImporter: CoreImporter {
                 headers: headers,
                 body: body)
 
+        let request = Request(http: httpReq, using: container)
+        let response = try! request.client().send(request).wait()
         
-        let client = try! HTTPClient.connect(hostname: baseUrl, on: container).wait()
-        let response = try! client.send(httpReq).wait()
-        print(response)
+        print(response.http)
         
     }
 
