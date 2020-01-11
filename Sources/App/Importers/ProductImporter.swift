@@ -216,7 +216,7 @@ class ProductImporter: CoreImporter {
             body: body)
         
         if async {
-            _ = HTTPClient.connect(hostname: "http://deeptee.test", on: container).map({ (client) -> Future<HTTPResponse> in
+            _ = HTTPClient.connect(hostname: baseUrl, on: container).map({ (client) -> Future<HTTPResponse> in
                 return client.send(httpReq).map({ (response) -> HTTPResponse in
                     
                     if let completion = completion {
@@ -245,7 +245,7 @@ class ProductImporter: CoreImporter {
                 })
             })
         } else {
-            let client = try! HTTPClient.connect(hostname: "http://deeptee.test", on: container).wait()
+            let client = try! HTTPClient.connect(hostname: baseUrl, on: container).wait()
             let response = try! client.send(httpReq).wait()
             
             if let completion = completion {
@@ -491,7 +491,7 @@ class ProductImporter: CoreImporter {
             body: body)
         
         
-        _ = HTTPClient.connect(hostname: "http://deeptee.test", on: container).map({ (client) in
+        _ = HTTPClient.connect(hostname: baseUrl, on: container).map({ (client) in
             return client.send(httpReq).map({ (response) -> HTTPResponse in
                 
                 self.productsAddedCount += 1
@@ -713,7 +713,7 @@ extension ProductImporter {
             headers: headers)
         
         
-        let client = try! HTTPClient.connect(hostname: "http://deeptee.test", on: container).wait()
+        let client = try! HTTPClient.connect(hostname: baseUrl, on: container).wait()
         let response = try! client.send(httpReq).wait()
         self.productsAddedCount += 1
         print(response)

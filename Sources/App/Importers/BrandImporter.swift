@@ -74,7 +74,7 @@ class BrandImporter: CoreImporter {
                 body: body)
 
         
-        let client = try! HTTPClient.connect(hostname: "http://deeptee.test", on: container).wait()
+        let client = try! HTTPClient.connect(hostname: baseUrl, on: container).wait()
         let response = try! client.send(httpReq).wait()
         print(response)
         

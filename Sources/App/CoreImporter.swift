@@ -22,7 +22,7 @@ class CoreImporter {
     private var token: String!
     private var refreshToken: String!
 
-    private var baseUrl: String!
+    var baseUrl: String!
     private var apiPrefixUrl: String!
     private var clientId: String!
     private var clientSecret: String!
