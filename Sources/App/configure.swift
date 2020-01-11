@@ -1,6 +1,7 @@
 import FluentSQLite
 import FluentMySQL
 import Vapor
+import DotEnv
 
 /// Called before your application initializes.
 public func configure(_ config: inout Config, _ env: inout Environment, _ services: inout Services) throws {
@@ -19,7 +20,8 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     services.register(middlewares)
 
     // Configure a SQLite database
-    let sqlite = try SQLiteDatabase(storage: .file(path: "/Users/hadi/Programming/swift/vapor/SyliusImporter/data/astin.db"))
+    let env = DotEnv(withFile: ".env")
+    let sqlite = try SQLiteDatabase(storage: .file(path: env.get("ASTIN_DB")!))
 
     
     // Configure a MySQL database
