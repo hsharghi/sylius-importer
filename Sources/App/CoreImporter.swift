@@ -81,7 +81,7 @@ class CoreImporter {
     
     func login(username: String, password: String) -> Future<String>? {
         
-        let url = "\(baseUrl!)api/oauth/v2/token?client_id=\(clientId!)&client_secret=\(clientSecret!)&grant_type=password&username=\(username)&password=\(password)"
+        let url = "\(baseUrl!)/api/oauth/v2/token?client_id=\(clientId!)&client_secret=\(clientSecret!)&grant_type=password&username=\(username)&password=\(password)"
         
         return client.get(url).map({ response -> String in
             
