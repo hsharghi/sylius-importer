@@ -19,8 +19,9 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     middlewares.use(ErrorMiddleware.self) // Catches errors and converts to HTTP response
     services.register(middlewares)
 
+    let dotEnv = DotEnv(withFile: ".env")
     // Configure a SQLite database
-    guard let astinDB = DotEnv(withFile: ".env").get("ASTIN_DB") else {
+    guard let astinDB = dotEnv.get("ASTIN_DB") else {
         print("invalid ASTIN_DB value")
         throw ENVError.invalidValue("invalid ASTIN_DB value")
     }
@@ -28,7 +29,12 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
 
     
     // Configure a MySQL database
-    let dbConfig = MySQLDatabaseConfig(hostname: "127.0.0.1", port: 3306, username: "root", password: "hadi2400", database: "deeptee")
+    let dbConfig = MySQLDatabaseConfig(hostname: dotEnv.get("MYSQL_HOST") ?? "127.0.0.1",
+                                       port: dotEnv.getAsInt("MYSQL_PORT") ?? 3306,
+                                       username: dotEnv.get("MYSQL_USER") ?? "root",
+                                       password: dotEnv.get("MYSQL_PASSWORD") ?? "",
+                                       database: dotEnv.get("MYSQL_DB") ?? "deeptee")
+    
     let mysql = MySQLDatabase(config: dbConfig)
 
     // Register the configured SQLite database to the database config.
