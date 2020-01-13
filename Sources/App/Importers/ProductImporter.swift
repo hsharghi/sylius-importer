@@ -21,8 +21,6 @@ class ProductImporter: CoreImporter {
     var productToImport : Int?
     
     //
-    var imagesDirectoryPath: String?
-    var websiteRootPath: String?
     var importImages: Bool = true
     
     convenience init(container: Container, productsToImport: Int? = nil) throws {
@@ -48,8 +46,8 @@ class ProductImporter: CoreImporter {
             return "Undefined images or website path"
         }
         
-        self.imagesDirectoryPath = rawImagesPath
-        self.websiteRootPath = websiteRootPath
+        imagesDirectory = rawImagesPath
+        websiteDirectory = websiteRootPath
         self.importImages = importImages
         
         categoryTree = try! categoriesAsTree().wait()
@@ -122,22 +120,22 @@ class ProductImporter: CoreImporter {
         let fileManage = FileManager()
 
         do {
-            let images = try fileManage.contentsOfDirectory(atPath: "\(imagesDirectoryPath!)/\(astinProductId)")
+            let images = try fileManage.contentsOfDirectory(atPath: "\(imagesDirectory!)/\(astinProductId)")
             var files = [File]()
             var productImages = [ProductImage]()
             
             for imageName in images {
-                if let data = fileManage.contents(atPath: "\(imagesDirectoryPath!)/\(astinProductId)/\(imageName)") {
+                if let data = fileManage.contents(atPath: "\(imagesDirectory!)/\(astinProductId)/\(imageName)") {
                     guard files.filter({$0.data == data}).first == nil else {
                         continue
                     }
-                    files.append(File(data: data, filename: "\(imagesDirectoryPath!)/\(astinProductId)/\(imageName)"))
+                    files.append(File(data: data, filename: "\(imagesDirectory!)/\(astinProductId)/\(imageName)"))
                 }
             }
             
-            let imageDirectory = websiteRootPath! + "/public/media/image/\(syliusProductId)"
+            let imageDirectory = websiteDirectory! + "/public/media/image/\(syliusProductId)"
             if !fileManage.fileExists(atPath: imageDirectory) {
-                try! fileManage.createDirectory(atPath: imageDirectory, withIntermediateDirectories: false, attributes: nil)
+                try! fileManage.createDirectory(atPath: imageDirectory, withIntermediateDirectories: true, attributes: nil)
             }
             files.forEach({ file in
                 let newImageName = "\(ProcessInfo.processInfo.globallyUniqueString).\(file.ext!)"
