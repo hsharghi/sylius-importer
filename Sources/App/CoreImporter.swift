@@ -41,9 +41,8 @@ class CoreImporter {
         
         env = DotEnv(withFile: ".env")
         
-        workingDirectory = env?.get("WORK_DIR")!
         websiteDirectory = env?.get("SITE_DIR")!
-        imagesDirectory = env?.get("IMAGES_DIR")!
+        imagesDirectory = env?.get("IMAGE_DIR")!
 
         baseUrl = env?.get("API_BASE_URL")!
         apiPrefixUrl = env?.get("API_PREFIX")!
