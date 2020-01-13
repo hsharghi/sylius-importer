@@ -19,6 +19,7 @@ class CoreImporter {
 
     var workingDirectory: String!
     var websiteDirectory: String!
+    var imagesDirectory: String!
     private var token: String!
     private var refreshToken: String!
 
@@ -42,6 +43,8 @@ class CoreImporter {
         
         workingDirectory = env?.get("WORK_DIR")!
         websiteDirectory = env?.get("SITE_DIR")!
+        imagesDirectory = env?.get("IMAGES_DIR")!
+
         baseUrl = env?.get("API_BASE_URL")!
         apiPrefixUrl = env?.get("API_PREFIX")!
         clientId = env?.get("API_CLIENT_ID")!
